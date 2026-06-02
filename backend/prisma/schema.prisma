@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  authProvider String   @default("local")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspaces       Workspace[]
+  workspaceMembers WorkspaceMember[]
+  chatSessions     ChatSession[]
+  documents        Document[]
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  ownerId     String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  owner    User              @relation(fields: [ownerId], references: [id])
+  members  WorkspaceMember[]
+  documents Document[]
+  graphNodes GraphNode[]
+  graphEdges GraphEdge[]
+  chatSessions ChatSession[]
+}
+
+model WorkspaceMember {
+  id          String   @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        String   @default("member")
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  workspaceId String
+  uploadedBy  String
+  filename    String
+  fileType    String
+  storageUrl  String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
+  uploader       User            @relation(fields: [uploadedBy], references: [id])
+  chunks         DocumentChunk[]
+  processingJobs ProcessingJob[]
+  graphNodes     GraphNode[]
+  graphEdges     GraphEdge[]
+}
+
+model DocumentChunk {
+  id         String   @id @default(uuid())
+  documentId String
+  chunkIndex Int
+  content    String
+  pageNumber Int?
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id])
+}
+
+model GraphNode {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  label            String
+  nodeType         String
+  description      String?
+  sourceDocumentId String?
+  createdAt        DateTime @default(now())
+
+  workspace      Workspace  @relation(fields: [workspaceId], references: [id])
+  sourceDocument Document?  @relation(fields: [sourceDocumentId], references: [id])
+  edgesFrom      GraphEdge[] @relation("EdgeSource")
+  edgesTo        GraphEdge[] @relation("EdgeTarget")
+}
+
+model GraphEdge {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  sourceNodeId     String
+  targetNodeId     String
+  relationType     String
+  confidenceScore  Float?
+  sourceDocumentId String?
+  createdAt        DateTime @default(now())
+
+  workspace      Workspace  @relation(fields: [workspaceId], references: [id])
+  sourceNode     GraphNode  @relation("EdgeSource", fields: [sourceNodeId], references: [id])
+  targetNode     GraphNode  @relation("EdgeTarget", fields: [targetNodeId], references: [id])
+  sourceDocument Document?  @relation(fields: [sourceDocumentId], references: [id])
+}
+
+model ChatSession {
+  id          String   @id @default(uuid())
+  workspaceId String
+  userId      String
+  title       String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sessionId String
+  role      String
+  content   String
+  citations Json?
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id])
+}
+
+model ProcessingJob {
+  id           String    @id @default(uuid())
+  documentId   String
+  status       String    @default("pending")
+  jobType      String
+  errorMessage String?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  document Document @relation(fields: [documentId], references: [id])
+}
