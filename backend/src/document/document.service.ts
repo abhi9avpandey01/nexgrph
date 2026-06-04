@@ -11,18 +11,12 @@ export class DocumentService {
     private queueService: QueueService,
   ) {}
 
-  async uploadDocument(
-    userId: string,
-    workspaceId: string,
-    file: Express.Multer.File,
-  ) {
-    // Check user is member of workspace
+  async uploadDocument(userId: string, workspaceId: string, file: Express.Multer.File) {
     const member = await this.prisma.workspaceMember.findFirst({
       where: { userId, workspaceId },
     });
     if (!member) throw new ForbiddenException('Access denied');
 
-    // Upload to Supabase Storage
     const filename = `${workspaceId}/${Date.now()}-${file.originalname}`;
     const { error } = await this.supabase.getClient().storage
       .from('documents')
@@ -30,12 +24,10 @@ export class DocumentService {
 
     if (error) throw new Error(error.message);
 
-    // Get public URL
     const { data: urlData } = this.supabase.getClient().storage
       .from('documents')
       .getPublicUrl(filename);
 
-    // Save to database
     const document = await this.prisma.document.create({
       data: {
         workspaceId,
@@ -47,19 +39,17 @@ export class DocumentService {
       },
     });
 
-   // Create processing job
-await this.prisma.processingJob.create({
-  data: {
-    documentId: document.id,
-    jobType: 'process_document',
-    status: 'pending',
-  },
-});
+    await this.prisma.processingJob.create({
+      data: {
+        documentId: document.id,
+        jobType: 'process_document',
+        status: 'pending',
+      },
+    });
 
-// Add to queue
-await this.queueService.addDocumentJob(document.id);
+    await this.queueService.addDocumentJob(document.id);
 
-return document;
+    return document;
   }
 
   async getDocuments(userId: string, workspaceId: string) {
@@ -85,7 +75,26 @@ return document;
     });
     if (!member) throw new ForbiddenException('Access denied');
 
-    await this.prisma.document.delete({ where: { id: documentId } });
+    await this.prisma.processingJob.deleteMany({
+      where: { documentId },
+    });
+
+    await this.prisma.documentChunk.deleteMany({
+      where: { documentId },
+    });
+
+    await this.prisma.graphEdge.deleteMany({
+      where: { sourceDocumentId: documentId },
+    });
+
+    await this.prisma.graphNode.deleteMany({
+      where: { sourceDocumentId: documentId },
+    });
+
+    await this.prisma.document.delete({
+      where: { id: documentId },
+    });
+
     return { message: 'Document deleted' };
   }
 }
