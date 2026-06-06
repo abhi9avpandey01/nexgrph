@@ -4,7 +4,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
 import Link from 'next/link';
-import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -37,7 +36,6 @@ export default function ChatPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState('Workspace');
   const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { if (!loading && !user) router.push('/login'); }, [user, loading, router]);
 
@@ -52,6 +50,68 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, thinking]);
+
+  const renderInline = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} style={{ fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
+  const renderMarkdown = (text: string) => {
+    const lines = text.split('\n');
+    return lines.map((line, i) => {
+      if (line.trim() === '') return <div key={i} style={{ height: 6 }} />;
+
+      if (line.startsWith('## ')) return (
+        <p key={i} style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', marginBottom: 4, marginTop: 12 }}>
+          {line.replace('## ', '')}
+        </p>
+      );
+
+      if (line.startsWith('### ')) return (
+        <p key={i} style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 4, marginTop: 8 }}>
+          {line.replace('### ', '')}
+        </p>
+      );
+
+      if (line.startsWith('**') && line.endsWith('**') && line.length > 4) return (
+        <p key={i} style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)', marginBottom: 4, marginTop: 10 }}>
+          {line.slice(2, -2)}
+        </p>
+      );
+
+      if (line.startsWith('* ') || line.startsWith('- ')) {
+        const content = line.replace(/^\* |^- /, '');
+        return (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5, paddingLeft: 4 }}>
+            <span style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 2, fontWeight: 700 }}>•</span>
+            <span style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text)' }}>{renderInline(content)}</span>
+          </div>
+        );
+      }
+
+      if (/^\d+\. /.test(line)) {
+        const num = line.match(/^(\d+)\. /)?.[1];
+        const content = line.replace(/^\d+\. /, '');
+        return (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5, paddingLeft: 4 }}>
+            <span style={{ color: 'var(--blue)', flexShrink: 0, fontWeight: 600, minWidth: 18 }}>{num}.</span>
+            <span style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text)' }}>{renderInline(content)}</span>
+          </div>
+        );
+      }
+
+      return (
+        <p key={i} style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--text)', marginBottom: 4 }}>
+          {renderInline(line)}
+        </p>
+      );
+    });
+  };
 
   const sendMessage = async (text?: string) => {
     const question = text || input.trim();
@@ -81,15 +141,19 @@ export default function ChatPage() {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)' }}>
       <div style={{ width: 20, height: 20, border: '2px solid var(--blue)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+
       {/* Navbar */}
       <nav style={{ padding: '12px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => router.push(`/workspace/${workspaceId}`)} style={{ color: 'var(--text2)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>← Back</button>
+          <button onClick={() => router.push(`/workspace/${workspaceId}`)} style={{ color: 'var(--text2)', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>
+            ← Back
+          </button>
           <span style={{ color: 'var(--border2)' }}>/</span>
           <span style={{ color: 'var(--text)', fontSize: 13, fontWeight: 500 }}>{workspaceName}</span>
           <span style={{ color: 'var(--border2)' }}>/</span>
@@ -111,6 +175,8 @@ export default function ChatPage() {
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
+
+          {/* Empty state */}
           {messages.length === 0 && (
             <div style={{ textAlign: 'center', paddingTop: 60 }}>
               <div style={{ width: 56, height: 56, background: 'var(--blue)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 24 }}>💬</div>
@@ -134,10 +200,13 @@ export default function ChatPage() {
             </div>
           )}
 
+          {/* Messages */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {messages.map((msg, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '80%' }}>
+                <div style={{ maxWidth: '82%' }}>
+
+                  {/* Assistant label */}
                   {msg.role === 'assistant' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                       <div style={{ width: 26, height: 26, background: 'var(--blue)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -146,37 +215,20 @@ export default function ChatPage() {
                       <span style={{ color: 'var(--text2)', fontSize: 12, fontWeight: 500 }}>NexGrph</span>
                     </div>
                   )}
+
+                  {/* Message bubble */}
                   <div style={{
-  padding: '12px 16px',
-  borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-  background: msg.role === 'user' ? 'var(--blue)' : 'var(--bg2)',
-  color: msg.role === 'user' ? 'white' : 'var(--text)',
-  fontSize: 14,
-  lineHeight: 1.7,
-  border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-}}>
-  {msg.role === 'user' ? (
-    msg.content
-  ) : (
-    <ReactMarkdown
-      components={{
-        p: ({ children }) => <p style={{ marginBottom: 10, lineHeight: 1.7 }}>{children}</p>,
-        strong: ({ children }) => <strong style={{ fontWeight: 600, color: 'var(--text)' }}>{children}</strong>,
-        ul: ({ children }) => <ul style={{ paddingLeft: 20, marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ul>,
-        ol: ({ children }) => <ol style={{ paddingLeft: 20, marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ol>,
-        li: ({ children }) => <li style={{ lineHeight: 1.6 }}>{children}</li>,
-        h1: ({ children }) => <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, marginTop: 12 }}>{children}</h1>,
-        h2: ({ children }) => <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, marginTop: 10 }}>{children}</h2>,
-        h3: ({ children }) => <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, marginTop: 8 }}>{children}</h3>,
-        code: ({ children }) => <code style={{ background: 'var(--bg3)', padding: '2px 6px', borderRadius: 4, fontSize: 12, fontFamily: 'monospace' }}>{children}</code>,
-        blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid var(--blue)', paddingLeft: 12, color: 'var(--text2)', margin: '8px 0' }}>{children}</blockquote>,
-      }}
-    >
-      {msg.content}
-    </ReactMarkdown>
-  )}
-</div>
+                    padding: '12px 16px',
+                    borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                    background: msg.role === 'user' ? 'var(--blue)' : 'var(--bg2)',
+                    color: msg.role === 'user' ? 'white' : 'var(--text)',
+                    fontSize: 14,
+                    lineHeight: 1.7,
+                    border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  }}>
+                    {msg.role === 'user' ? msg.content : renderMarkdown(msg.content)}
+                  </div>
 
                   {/* Citations */}
                   {msg.citations && msg.citations.length > 0 && (
@@ -222,7 +274,6 @@ export default function ChatPage() {
       <div style={{ padding: '16px 32px 24px', background: 'var(--bg2)', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
           <textarea
-            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -248,6 +299,7 @@ export default function ChatPage() {
           0%, 60%, 100% { transform: translateY(0); }
           30% { transform: translateY(-6px); }
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
