@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import api from '@/lib/api';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -146,17 +147,36 @@ export default function ChatPage() {
                     </div>
                   )}
                   <div style={{
-                    padding: '12px 16px',
-                    borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: msg.role === 'user' ? 'var(--blue)' : 'var(--bg2)',
-                    color: msg.role === 'user' ? 'white' : 'var(--text)',
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                  }}>
-                    {msg.content}
-                  </div>
+  padding: '12px 16px',
+  borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+  background: msg.role === 'user' ? 'var(--blue)' : 'var(--bg2)',
+  color: msg.role === 'user' ? 'white' : 'var(--text)',
+  fontSize: 14,
+  lineHeight: 1.7,
+  border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+}}>
+  {msg.role === 'user' ? (
+    msg.content
+  ) : (
+    <ReactMarkdown
+      components={{
+        p: ({ children }) => <p style={{ marginBottom: 10, lineHeight: 1.7 }}>{children}</p>,
+        strong: ({ children }) => <strong style={{ fontWeight: 600, color: 'var(--text)' }}>{children}</strong>,
+        ul: ({ children }) => <ul style={{ paddingLeft: 20, marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ul>,
+        ol: ({ children }) => <ol style={{ paddingLeft: 20, marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</ol>,
+        li: ({ children }) => <li style={{ lineHeight: 1.6 }}>{children}</li>,
+        h1: ({ children }) => <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, marginTop: 12 }}>{children}</h1>,
+        h2: ({ children }) => <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 6, marginTop: 10 }}>{children}</h2>,
+        h3: ({ children }) => <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, marginTop: 8 }}>{children}</h3>,
+        code: ({ children }) => <code style={{ background: 'var(--bg3)', padding: '2px 6px', borderRadius: 4, fontSize: 12, fontFamily: 'monospace' }}>{children}</code>,
+        blockquote: ({ children }) => <blockquote style={{ borderLeft: '3px solid var(--blue)', paddingLeft: 12, color: 'var(--text2)', margin: '8px 0' }}>{children}</blockquote>,
+      }}
+    >
+      {msg.content}
+    </ReactMarkdown>
+  )}
+</div>
 
                   {/* Citations */}
                   {msg.citations && msg.citations.length > 0 && (

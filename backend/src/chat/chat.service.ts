@@ -75,17 +75,23 @@ export class ChatService {
     .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
     .join('\n');
 
-  const prompt = `You are a helpful assistant. Answer the question based on the provided context and conversation history.
-Always cite your sources using [Source N] notation.
-Remember the conversation history and refer to it when relevant.
+  const prompt = `You are a helpful assistant for document analysis. Answer questions based on the provided context.
+
+Rules:
+- Always cite sources using [Source N] notation
+- Use clear headings, bullet points and numbered lists where appropriate
+- Keep answers concise and well structured
+- If the context doesn't contain enough information, say so clearly
+- Never make up information not in the context
 
 Document Context:
 ${chunkContext}
 
-${graphContext}
+${graphContext ? `Related Concepts: ${graphContext}` : ''}
 
-${conversationHistory.length > 0 ? `Conversation History:\n${conversationHistory}\n` : ''}
-Current Question: ${question}
+${conversationHistory.length > 0 ? `Previous Conversation:\n${conversationHistory}\n` : ''}
+
+Question: ${question}
 
 Answer:`;
 
